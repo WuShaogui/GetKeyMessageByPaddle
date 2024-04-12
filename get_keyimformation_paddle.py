@@ -1,4 +1,6 @@
 import os.path as osp
+from time import sleep
+import time
 from PIL import Image
 import numpy as np
 import cv2
@@ -7,43 +9,59 @@ import glob
 import csv
 import os
 
+import paddle
 from paddleocr import PaddleOCR,draw_ocr
 from paddlenlp import Taskflow
 
 from pdf2image import convert_from_path
 
-class ReadDocument:
-    def __init__(self,
-                 schema:list=["甲方","乙方","总价","金额","总计"],  # 待搜索的关键信息
-                 is_draw:bool=False,                             # 是否将OCR结果绘制出来
-                ):
-        self.schema=schema
-        self.is_draw=is_draw
-        if self.is_draw:
-            self.save_ocr_dir=str(datetime.datetime.now())
-            os.mkdir(f'./{self.save_ocr_dir}')           
+from utils import openPath
 
+class ReadDocument:
+    def __init__(self,tkroot):
+        self.tkroot=tkroot
+        self.schema=""
         self.ocr_client=None
         self.nlp_client=None
+    
+    def check_env(self):
+       return paddle.device.is_compiled_with_cuda()
 
-        self.load()
+    def load(self,schema):
+        self.tkroot.disabled_gui()
+        self.tkroot.init_ai_str.set("正在初始化AI...")
+        self.tkroot.update()
     
-    def load(self):
-        self.ocr_client = PaddleOCR(
-            use_angle_cls=False, 
-            lang="ch", 
-            det_db_box_thresh=0.3, 
-            det_model_dir='./models/ocr/det',
-            rec_model_dir='./models/ocr/rec',
-            cls_model_dir='./models/ocr/cls',
-            use_dilation=True,
-            show_log=False)
-        self.nlp_client = Taskflow(
-            task='information_extraction', 
-            schema=self.schema,
-            home_path='./models/nlp')
-        self.nlp_client.set_schema(self.schema)
-    
+        # 使用新的schema初始化
+        if self.schema=="" or schema!=self.schema:
+
+            if self.ocr_client!=None:del self.ocr_client
+            if self.nlp_client!=None:del self.nlp_client
+
+            self.schema=schema
+            self.ocr_client = PaddleOCR(
+                use_angle_cls=False, 
+                lang="ch", 
+                det_db_box_thresh=0.3, 
+                det_model_dir='./models/ocr/det',
+                rec_model_dir='./models/ocr/rec',
+                cls_model_dir='./models/ocr/cls',
+                use_dilation=True,
+                show_log=False)
+            self.nlp_client = Taskflow(
+                task='information_extraction', 
+                schema=self.schema,
+                home_path='./models/nlp',
+                show_log=False)
+            self.nlp_client.set_schema(self.schema.split(','))
+        else:
+            print("该schema的AI环境已经被初始化，可点击识别处理文件")
+        
+        self.tkroot.enable_gui()
+        self.tkroot.init_ai_str.set("AI环境已加载")
+        self.tkroot.tk_label_init_ai['background']="#b2f2bb"
+        self.tkroot.update()
+        
     def read_context_from_image(self,image:np.array,image_name:str=''):
         '''用cor模型识别出其中的文字
 
@@ -145,29 +163,106 @@ class ReadDocument:
         '''
         assert osp.exists(pdf_path),print(f'{pdf_path} is not found')
 
-        images = convert_from_path(pdf_path)
+        images = convert_from_path(osp.abspath(pdf_path),poppler_path=r'./poppler-24.02.0/Library/bin')
         images=list(map(lambda image:np.array(image)[...,::-1],images))
 
         return images
-        
-    def analyze_pdfs(self,pdfs_path:str,csv_save_path='output.csv'):
+    
+    def analyze_pdfs(self,
+                     pdfs_dir:str,
+                     save_csv_dir,
+                     is_draw:bool=False,                # 是否将OCR结果绘制出来
+                     is_filter:bool=True                # 是否过滤结果 
+                     ):
         '''从一批pdf文件中提取关键信息
 
         Parameters
         ----------
-        pdfs_path : list(str)
-            所有psf文件路径
-        csv_save_path : str, optional
+        pdfs_dir : list(str)
+            psf文件夹路径
+        save_csv_dir : str, optional
             所有pdf的关键信息保存的csv路径, by default 'output.csv'
         '''
+        print("开始识别pdf......")
+        print(f'pdfs_dir:{pdfs_dir}\nsave_csv_dir:{save_csv_dir}\nis_draw:{is_draw}\nis_filter:{is_filter}')
+
+        self.tkroot.disabled_gui()
+        self.tkroot.now_progress.set(0)
+        self.tkroot.tk_button_stop['state']="enable"
+        self.tkroot.update()
+
+        if self.ocr_client==None or self.nlp_client==None:
+            print('AI环境未初始化')
+            self.tkroot.enable_gui()
+            self.tkroot.tk_button_stop['state']="disable"
+            self.tkroot.update()
+            return
+
+        self.is_draw=is_draw
+        if self.is_draw:
+            self.save_ocr_dir=osp.join(save_csv_dir,str(datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")))
+            # os.mkdir(f'./{self.save_ocr_dir}')
+            os.mkdir(self.save_ocr_dir)
+        self.is_filter=is_filter
+
         # 遍历所有pdf，提取关键信息
-        self.pdfs_all_key_imformation={}
-        for pdfId,pdf_path in enumerate(pdfs_path):
-            images=self.convert_pdf_to_images(pdf_path)
-            all_key_imformation=self.analyze_images(images,osp.splitext(osp.basename(pdf_path))[0])
-            self.pdfs_all_key_imformation[pdfId]=all_key_imformation
+        self.pdfs_path=glob.glob(osp.join(pdfs_dir,'*.pdf'))
+        pdfs_num=len(self.pdfs_path)
+        if pdfs_num==0:
+            print("未找到pdf文件")
         
-        self.save_result_to_csv(csv_save_path)
+        num_success=0
+        error_list=[]
+        self.pdfs_all_key_imformation={}
+        for pdfId,pdf_path in enumerate(self.pdfs_path):
+            # 判断是否有停止操作
+            if not self.tkroot.event.is_set():
+                try:
+                    start=time.time()
+                    
+                    images=self.convert_pdf_to_images(pdf_path)
+                    all_key_imformation=self.analyze_images(images,osp.splitext(osp.basename(pdf_path))[0])
+                    # 是否过滤结果
+                    if self.is_filter:
+                        self.pdfs_all_key_imformation[pdfId]=self.filter_key_imformation(all_key_imformation)
+                    else:
+                        self.pdfs_all_key_imformation[pdfId]=all_key_imformation
+                    
+                    end=time.time()
+                    cost=end-start
+                    print('进度{}/{} 图片:{} 耗时:{:.1f}s'.format(pdfId+1,pdfs_num,pdf_path,cost))
+                    num_success+=1
+
+                except Exception as e:
+                    self.tkroot.show_log.set(">>>提取失败！")
+                    error_list.append(pdf_path)
+                
+                run_process=int(pdfId/pdfs_num*100)
+                self.tkroot.show_log.set("发现tif：{}\n展平成功：{}\n展平失败：{}\n展平进度：{}%".format(pdfs_num,num_success,len(error_list),run_process))
+                self.tkroot.now_progress.set(run_process)
+                self.tkroot.update()
+            else:
+                break
+
+        self.save_result_to_csv(save_csv_dir)
+
+        if self.tkroot.event.is_set():
+            print('>>>手动终止')
+        else:
+            self.tkroot.show_log.set("发现pdf：{}\n提取成功：{}\n提取失败：{}\n提取进度：{}%".format(pdfs_num,num_success,len(error_list),100))
+            self.tkroot.now_progress.set(100)
+
+            # 打开输出目录
+            if(num_success>0):
+                openPath(save_csv_dir)
+            print('>>>处理完成！')
+            if(len(error_list)>0):
+                print('以下文件转换失败，请确认：\n{}'.format('\n'.join(error_list)))
+        
+        self.tkroot.enable_gui()
+        self.tkroot.tk_button_stop['state']="disable"
+        self.tkroot.update()
+
     
     def filter_key_imformation(self,all_key_imformation):
         '''预测结果有比较多重复的，执行两个过滤，相当于目标检测的nms
@@ -224,21 +319,21 @@ class ReadDocument:
         
         return all_key_imformation
     
-    def save_result_to_csv(self,csv_save_path):
+    def save_result_to_csv(self,csv_save_dir):
         '''将AI识别结果汇总到csv
 
         Parameters
         ----------
-        csv_save_path : str
+        csv_save_dir : str
             csv保存路径
         '''
         # 构造csv的表头及内容
-        csv_header = ['文件名']+self.schema
+        csv_header = ['文件名']+self.schema.split(',')
         csv_content =[]
         for pdfId in self.pdfs_all_key_imformation:
-            all_key_imformation=rd.filter_key_imformation(self.pdfs_all_key_imformation[pdfId])
-            pdf_content=[pdfs_path[pdfId]]
-            for se in schema:
+            all_key_imformation=self.filter_key_imformation(self.pdfs_all_key_imformation[pdfId])
+            pdf_content=[self.pdfs_path[pdfId]]
+            for se in self.schema.split(','):
                 se_text=[]
                 if se in all_key_imformation[0]:
                     for ki in all_key_imformation[0][se]:
@@ -247,6 +342,7 @@ class ReadDocument:
             csv_content.append(pdf_content)
 
         # 打开文件并写入数据
+        csv_save_path=osp.join(csv_save_dir,'output.csv')
         with open(csv_save_path, 'w', newline='', encoding='utf-8') as f:
             writer = csv.writer(f)
             writer.writerow(csv_header)  # 写入表头
@@ -278,9 +374,10 @@ if __name__ == '__main__':
     #     print('---------'*5)
 
     # 识别1批pdf
-    pdfs_dir='/home/wushaogui/MyCodes/GetKeyMessageByPaddle/test_pdf'
+    pdfs_dir='.\\test_pdf'
     pdfs_path=glob.glob(osp.join(pdfs_dir,'*.pdf'))
     print('pdf count:',len(pdfs_path))
+    print(pdfs_path)
 
     rd.analyze_pdfs(pdfs_path)
     
