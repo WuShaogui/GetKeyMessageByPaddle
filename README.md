@@ -6,7 +6,7 @@
 - [x] 新增扫描一个文件夹下所有pdf文件的功能
 - [x] 新增将识别结果保存到csv中的过程
 - [x] 设计界面
-- [ ] 打包发布
+- [x] 打包发布
 
 
 项目安装过程：
@@ -23,8 +23,9 @@
 
 nuitka打包命令
 ```bash
-python -m nuitka --onefile --mingw64 --show-memory --show-progress --show-modules --plugin-enable=pylint-warnings --plugin-enable=pkg-resources --plugin-enable=numpy --enable-plugin=tk-inter --windows-company-name=EHOLLY --windows-product-name=GetPDFKeyInformation --windows-file-version=0.0.1 --windows-product-version=0.0.1  --windows-file-description="PDF关键信息提取工具" main.py
+python -m nuitka --onefile --mingw64 --show-memory --show-progress --show-modules --enable-plugin=pylint-warnings --windows-company-name=EHOLLY --enable-plugin=tk-inter --nofollow-import-to=paddle --nofollow-import-to=paddleocr --nofollow-import-to=paddlenlp --windows-product-name=GetPDFKeyInformation --windows-file-version=0.0.1 --windows-product-version=0.0.1  --windows-file-description="PDF关键信息提取工具" main.py
 ```
+
 
 更新日志：
 v0.0.1 实现基本功能

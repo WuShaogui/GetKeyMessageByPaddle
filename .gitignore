@@ -9,3 +9,7 @@ poppler-24.02.0/Library/include/*
 poppler-24.02.0/Library/lib/*
 poppler-24.02.0/Library/share/*
 __pycache__/*
+main.build/*
+packge/*
+main.dist/*
+output.csv

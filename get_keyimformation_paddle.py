@@ -214,6 +214,10 @@ class ReadDocument:
         num_success=0
         error_list=[]
         self.pdfs_all_key_imformation={}
+        run_process=0
+        self.tkroot.show_log.set("发现tif：{}\n提取成功：{}\n提取失败：{}\n提取进度：{}%".format(pdfs_num,num_success,len(error_list),run_process))
+        self.tkroot.now_progress.set(run_process)
+        self.tkroot.update()
         for pdfId,pdf_path in enumerate(self.pdfs_path):
             # 判断是否有停止操作
             if not self.tkroot.event.is_set():
@@ -238,7 +242,7 @@ class ReadDocument:
                     error_list.append(pdf_path)
                 
                 run_process=int(pdfId/pdfs_num*100)
-                self.tkroot.show_log.set("发现tif：{}\n展平成功：{}\n展平失败：{}\n展平进度：{}%".format(pdfs_num,num_success,len(error_list),run_process))
+                self.tkroot.show_log.set("发现tif：{}\n提取成功：{}\n提取失败：{}\n提取进度：{}%".format(pdfs_num,num_success,len(error_list),run_process))
                 self.tkroot.now_progress.set(run_process)
                 self.tkroot.update()
             else:
