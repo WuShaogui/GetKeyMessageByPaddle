@@ -1,7 +1,6 @@
 import os.path as osp
 from time import sleep
 import time
-from PIL import Image
 import numpy as np
 import cv2
 import datetime
@@ -9,6 +8,7 @@ import glob
 import csv
 import os
 
+import PIL
 import paddle
 from paddleocr import PaddleOCR,draw_ocr
 from paddlenlp import Taskflow
@@ -93,11 +93,15 @@ class ReadDocument:
         scores = [line[1][1] for line in result[0]]
 
         if self.is_draw:
-            im_show = draw_ocr(image, boxes, txts, scores, font_path='./simfang.ttf')
-            im_show = Image.fromarray(im_show)
-            vis = np.array(im_show)
+            try:
+                im_show = draw_ocr(image, boxes, txts, scores, font_path='./simfang.ttf')
+                im_show = PIL.Image.fromarray(im_show)
+                vis = np.array(im_show)
+            except Exception as e:
+                print(e)
 
             # 保存ocr结果
+            # print(osp.join(self.save_ocr_dir,image_name+'.png'))
             cv2.imwrite(osp.join(self.save_ocr_dir,image_name+'.png'),vis.astype(np.uint8))         
 
         context = "\n".join(txts)
@@ -355,35 +359,22 @@ class ReadDocument:
 
 
 if __name__ == '__main__':
-    schema=["甲方","乙方","总价","金额","总计"]
-    rd=ReadDocument(schema,is_draw=True)
+    import sys
+    print(sys.path)
 
-    # 识别多张图片
-    # images_path=['test_img/hetong1.jpeg','test_img/hetong2.jpg','test_img/hetong3.jpg','test_img/homework.png']
-    # images=list(map(lambda image_path:cv2.imread(image_path,cv2.IMREAD_COLOR), images_path))
-    # all_key_imformation=rd.analyze_images(images)
+    from tkinter import *
+    from tkinter.ttk import *
+    from ui import WinGUI
+    win = WinGUI()
 
-    # 识别1份pdf
-    # pdf_path='test_pdf/hetong9.pdf'
-    # all_key_imformation=rd.analyze_pdf(pdf_path,is_draw=False)
+    rd=ReadDocument(win)
 
-    # print(all_key_imformation)
-    # all_key_imformation=rd.filter_key_imformation(all_key_imformation)
-    # print(all_key_imformation)
-
-    # for i,se in enumerate(all_key_imformation[0]):
-    #     print(se)
-    #     for ki in all_key_imformation[0][se]:
-    #         print(ki)
-    #     print('---------'*5)
+    schema="甲方,乙方,总价,金额,总计"
+    rd.load(schema=schema)
 
     # 识别1批pdf
-    pdfs_dir='.\\test_pdf'
-    pdfs_path=glob.glob(osp.join(pdfs_dir,'*.pdf'))
-    print('pdf count:',len(pdfs_path))
-    print(pdfs_path)
-
-    rd.analyze_pdfs(pdfs_path)
-    
-    
-
+    pdfs_dir='../test_pdf'
+    save_csv_dir='C:\\Users\\wushaogui\\Downloads\\'
+    is_draw:bool=True                # 是否将OCR结果绘制出来
+    is_filter:bool=True                # 是否过滤结果 
+    rd.analyze_pdfs(pdfs_dir,save_csv_dir,is_draw,is_filter)
