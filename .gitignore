@@ -2,7 +2,6 @@ blue_channel.jpg
 green_channel.jpg
 red_channel.jpg
 __pycache__/my_read_code_tools.cpython-39.pyc
-*/*.png
 models/*
 poppler-24.02.0/share/*
 poppler-24.02.0/Library/include/*
