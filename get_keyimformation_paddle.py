@@ -1,5 +1,4 @@
 import os.path as osp
-from time import sleep
 import time
 import numpy as np
 import cv2
@@ -7,8 +6,13 @@ import datetime
 import glob
 import csv
 import os
+import sys
 
-import PIL
+
+from PIL import Image,ImageDraw,ImageFont
+
+a=Image.__file__+ImageDraw.__file__+ImageFont.__file__
+
 import paddle
 from paddleocr import PaddleOCR,draw_ocr
 from paddlenlp import Taskflow
@@ -95,14 +99,14 @@ class ReadDocument:
         if self.is_draw:
             try:
                 im_show = draw_ocr(image, boxes, txts, scores, font_path='./simfang.ttf')
-                im_show = PIL.Image.fromarray(im_show)
-                vis = np.array(im_show)
+                # im_show = PIL.Image.fromarray(im_show)
+                # vis = np.array(im_show)
             except Exception as e:
                 print(e)
 
             # 保存ocr结果
             # print(osp.join(self.save_ocr_dir,image_name+'.png'))
-            cv2.imwrite(osp.join(self.save_ocr_dir,image_name+'.png'),vis.astype(np.uint8))         
+            cv2.imwrite(osp.join(self.save_ocr_dir,image_name+'.png'),im_show.astype(np.uint8))         
 
         context = "\n".join(txts)
         return context
@@ -219,7 +223,7 @@ class ReadDocument:
         error_list=[]
         self.pdfs_all_key_imformation={}
         run_process=0
-        self.tkroot.show_log.set("发现tif：{}\n提取成功：{}\n提取失败：{}\n提取进度：{}%".format(pdfs_num,num_success,len(error_list),run_process))
+        self.tkroot.show_log.set("发现pdf：{}\n提取成功：{}\n提取失败：{}\n提取进度：{}%".format(pdfs_num,num_success,len(error_list),run_process))
         self.tkroot.now_progress.set(run_process)
         self.tkroot.update()
         for pdfId,pdf_path in enumerate(self.pdfs_path):
@@ -238,7 +242,7 @@ class ReadDocument:
                     
                     end=time.time()
                     cost=end-start
-                    print('进度{}/{} 图片:{} 耗时:{:.1f}s'.format(pdfId+1,pdfs_num,pdf_path,cost))
+                    print('进度{}/{} PDF:{} 耗时:{:.1f}s'.format(pdfId+1,pdfs_num,pdf_path,cost))
                     num_success+=1
 
                 except Exception as e:
@@ -359,9 +363,6 @@ class ReadDocument:
 
 
 if __name__ == '__main__':
-    import sys
-    print(sys.path)
-
     from tkinter import *
     from tkinter.ttk import *
     from ui import WinGUI
@@ -373,7 +374,7 @@ if __name__ == '__main__':
     rd.load(schema=schema)
 
     # 识别1批pdf
-    pdfs_dir='../test_pdf'
+    pdfs_dir='test_pdf'
     save_csv_dir='C:\\Users\\wushaogui\\Downloads\\'
     is_draw:bool=True                # 是否将OCR结果绘制出来
     is_filter:bool=True                # 是否过滤结果 

@@ -23,7 +23,7 @@
 
 nuitka打包命令
 ```bash
-python -m nuitka --onefile --mingw64 --show-memory --show-progress --show-modules --enable-plugin=pylint-warnings --windows-company-name=EHOLLY --enable-plugin=tk-inter --nofollow-import-to=paddle --nofollow-import-to=paddleocr --nofollow-import-to=paddlenlp --windows-product-name=GetPDFKeyInformation --windows-file-version=0.0.1 --windows-product-version=0.0.1  --windows-file-description="PDF关键信息提取工具" main.py
+python -m nuitka --onefile --mingw64 --show-memory --show-progress --show-modules --enable-plugin=pylint-warnings --windows-company-name=EHOLLY --enable-plugin=tk-inter  --nofollow-import-to=paddle --nofollow-import-to=paddleocr --nofollow-import-to=paddlenlp --windows-product-name=GetPDFKeyInformation --windows-file-version=0.0.1 --windows-product-version=0.0.1  --windows-file-description="PDF关键信息提取工具" main.py
 ```
 
 

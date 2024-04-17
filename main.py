@@ -4,6 +4,12 @@
 QQ交流群:905019785
 在线反馈:https://support.qq.com/product/618914
 """
+
+from PIL import Image,ImageDraw,ImageFont
+
+a=Image.__file__+ImageDraw.__file__+ImageFont.__file__
+
+
 # 导入布局文件
 from ui import Win as MainWin
 # 导入窗口控制器
