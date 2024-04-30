@@ -37,7 +37,7 @@ class WinGUI(Tk):
         self.tk_label_init_ai = self.__tk_label_init_ai(self)
 
     def __win(self):
-        self.title("合同关键性信息提取助手")
+        self.title("PDF文件关键性信息提取助手")
         # 设置窗口大小、居中
         width = 616
         height = 444

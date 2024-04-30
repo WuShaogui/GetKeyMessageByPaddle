@@ -1,13 +1,17 @@
 import os.path as osp
-from time import sleep
 import time
-from PIL import Image
 import numpy as np
 import cv2
 import datetime
 import glob
 import csv
 import os
+import sys
+
+
+from PIL import Image,ImageDraw,ImageFont
+
+a=Image.__file__+ImageDraw.__file__+ImageFont.__file__
 
 import paddle
 from paddleocr import PaddleOCR,draw_ocr
@@ -93,12 +97,16 @@ class ReadDocument:
         scores = [line[1][1] for line in result[0]]
 
         if self.is_draw:
-            im_show = draw_ocr(image, boxes, txts, scores, font_path='./simfang.ttf')
-            im_show = Image.fromarray(im_show)
-            vis = np.array(im_show)
+            try:
+                im_show = draw_ocr(image, boxes, txts, scores, font_path='./simfang.ttf')
+                # im_show = PIL.Image.fromarray(im_show)
+                # vis = np.array(im_show)
+            except Exception as e:
+                print(e)
 
             # 保存ocr结果
-            cv2.imwrite(osp.join(self.save_ocr_dir,image_name+'.png'),vis.astype(np.uint8))         
+            # print(osp.join(self.save_ocr_dir,image_name+'.png'))
+            cv2.imwrite(osp.join(self.save_ocr_dir,image_name+'.png'),im_show.astype(np.uint8))         
 
         context = "\n".join(txts)
         return context
@@ -214,6 +222,10 @@ class ReadDocument:
         num_success=0
         error_list=[]
         self.pdfs_all_key_imformation={}
+        run_process=0
+        self.tkroot.show_log.set("发现pdf：{}\n提取成功：{}\n提取失败：{}\n提取进度：{}%".format(pdfs_num,num_success,len(error_list),run_process))
+        self.tkroot.now_progress.set(run_process)
+        self.tkroot.update()
         for pdfId,pdf_path in enumerate(self.pdfs_path):
             # 判断是否有停止操作
             if not self.tkroot.event.is_set():
@@ -230,7 +242,7 @@ class ReadDocument:
                     
                     end=time.time()
                     cost=end-start
-                    print('进度{}/{} 图片:{} 耗时:{:.1f}s'.format(pdfId+1,pdfs_num,pdf_path,cost))
+                    print('进度{}/{} PDF:{} 耗时:{:.1f}s'.format(pdfId+1,pdfs_num,pdf_path,cost))
                     num_success+=1
 
                 except Exception as e:
@@ -238,7 +250,7 @@ class ReadDocument:
                     error_list.append(pdf_path)
                 
                 run_process=int(pdfId/pdfs_num*100)
-                self.tkroot.show_log.set("发现tif：{}\n展平成功：{}\n展平失败：{}\n展平进度：{}%".format(pdfs_num,num_success,len(error_list),run_process))
+                self.tkroot.show_log.set("发现tif：{}\n提取成功：{}\n提取失败：{}\n提取进度：{}%".format(pdfs_num,num_success,len(error_list),run_process))
                 self.tkroot.now_progress.set(run_process)
                 self.tkroot.update()
             else:
@@ -351,35 +363,19 @@ class ReadDocument:
 
 
 if __name__ == '__main__':
-    schema=["甲方","乙方","总价","金额","总计"]
-    rd=ReadDocument(schema,is_draw=True)
+    from tkinter import *
+    from tkinter.ttk import *
+    from ui import WinGUI
+    win = WinGUI()
 
-    # 识别多张图片
-    # images_path=['test_img/hetong1.jpeg','test_img/hetong2.jpg','test_img/hetong3.jpg','test_img/homework.png']
-    # images=list(map(lambda image_path:cv2.imread(image_path,cv2.IMREAD_COLOR), images_path))
-    # all_key_imformation=rd.analyze_images(images)
+    rd=ReadDocument(win)
 
-    # 识别1份pdf
-    # pdf_path='test_pdf/hetong9.pdf'
-    # all_key_imformation=rd.analyze_pdf(pdf_path,is_draw=False)
-
-    # print(all_key_imformation)
-    # all_key_imformation=rd.filter_key_imformation(all_key_imformation)
-    # print(all_key_imformation)
-
-    # for i,se in enumerate(all_key_imformation[0]):
-    #     print(se)
-    #     for ki in all_key_imformation[0][se]:
-    #         print(ki)
-    #     print('---------'*5)
+    schema="甲方,乙方,总价,金额,总计"
+    rd.load(schema=schema)
 
     # 识别1批pdf
-    pdfs_dir='.\\test_pdf'
-    pdfs_path=glob.glob(osp.join(pdfs_dir,'*.pdf'))
-    print('pdf count:',len(pdfs_path))
-    print(pdfs_path)
-
-    rd.analyze_pdfs(pdfs_path)
-    
-    
-
+    pdfs_dir='test_pdf'
+    save_csv_dir='C:\\Users\\wushaogui\\Downloads\\'
+    is_draw:bool=True                # 是否将OCR结果绘制出来
+    is_filter:bool=True                # 是否过滤结果 
+    rd.analyze_pdfs(pdfs_dir,save_csv_dir,is_draw,is_filter)
